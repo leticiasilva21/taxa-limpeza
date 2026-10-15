@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taxa de Limpeza — Carpediem</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #faf8f4; --panel: #ffffff; --ink: #1f2328; --muted: #6b6f76; --line: #e7e2d9; --soft: #f3efe7;
+    --accent: #c4622d; --accent-soft: #fbeadf;
+    --good: #2f7d4f; --good-soft: #e3f2e8; --bad: #b3372f; --bad-soft: #fbe5e3;
+    --warn: #a86b00; --warn-soft: #fdf1d8; --blue: #2d5f9a; --blue-soft: #e5eef9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 20px 16px 120px; }
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h1 b { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0 16px; overflow-x: auto; }
+  .tab { padding: 9px 14px; border: 0; background: none; border-bottom: 2px solid transparent; cursor: pointer; color: var(--muted); white-space: nowrap; font-weight: 500; }
+  .tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab .count { background: var(--soft); color: var(--ink); border-radius: 10px; padding: 0 7px; font-size: 11px; margin-left: 4px; }
+  .tab.urg .count { background: var(--bad); color: #fff; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 14px 0; }
+  .kpi { padding: 12px 14px; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .kpi .v { font-size: 22px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi .d { font-size: 12px; color: var(--muted); }
+  .kpi.bad .v { color: var(--bad); }
+  .kpi.good .v { color: var(--good); }
+  .rules { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; font-size: 13px; }
+  .rules label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .rules input { width: 64px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; text-align: right; }
+  .rules .txt { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls input[type=search], .controls select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; max-width: 100%; }
+  .controls input[type=search] { width: 260px; }
+  .btn { padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--soft); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(0.95); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+  .tablewrap { overflow: auto; max-height: calc(100vh - 230px); border-radius: 10px; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 7px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--soft); font-size: 12px; font-weight: 600; color: #4a4d52; z-index: 1; cursor: pointer; user-select: none; }
+  th.nosort { cursor: default; }
+  th .arr { color: var(--accent); }
+  td.num, th.num { text-align: right; }
+  tr:hover td { background: #fffdf9; }
+  .nm { font-weight: 600; max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+  .nm2 { color: var(--muted); font-size: 12px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+  .link { color: var(--blue); cursor: pointer; text-decoration: underline dotted; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; }
+  .b-alta { background: var(--good-soft); color: var(--good); }
+  .b-media { background: var(--blue-soft); color: var(--blue); }
+  .b-baixa { background: var(--soft); color: var(--muted); }
+  .b-urg { background: var(--bad-soft); color: var(--bad); }
+  .b-forte { background: var(--warn-soft); color: var(--warn); }
+  .b-ok { background: var(--good-soft); color: var(--good); }
+  .b-err { background: var(--bad-soft); color: var(--bad); }
+  .occ { display: inline-flex; align-items: center; gap: 6px; }
+  .occ .bar { width: 46px; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; }
+  .occ .bar i { display: block; height: 100%; background: var(--muted); }
+  .occ.hi .bar i { background: var(--good); }
+  .lac { width: 74px; padding: 4px 6px; border: 1.5px dashed var(--warn); border-radius: 6px; background: var(--warn-soft); text-align: right; }
+  .lac:focus { outline: none; border-style: solid; background: #fff; }
+  .final { font-weight: 700; }
+  .delta { color: var(--good); font-size: 12px; }
+  .muted { color: var(--muted); }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .bar-bottom { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(0,0,0,.05); z-index: 5; }
+  .bar-bottom .in { max-width: 1440px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+  .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .gate form { padding: 22px; width: 340px; max-width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .gate input { padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .err { color: var(--bad); font-size: 13px; min-height: 18px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(30,30,30,.35); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal { width: 720px; max-width: 100%; max-height: 86vh; overflow: auto; padding: 18px 20px; }
+  .modal h3 { margin: 0 0 6px; }
+  .modal table td, .modal table th { position: static; font-size: 13px; }
+  .progress { height: 8px; background: var(--soft); border-radius: 4px; overflow: hidden; margin: 10px 0; }
+  .progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .note { font-size: 12px; color: var(--muted); }
+  .regin { width: 64px; padding: 3px 6px; border: 1.5px dashed var(--warn); border-radius: 6px; background: var(--warn-soft); text-align: right; }
+  @media (max-width: 700px) { .controls input[type=search] { width: 100%; } h1 { font-size: 19px; } }
+</style>
+</head>
+<body>
+<div class="gate hidden" id="gate">
+  <form class="card" id="loginForm">
+    <div><b style="font-size:17px">Taxa de Limpeza</b><div class="sub">Carpediem · mesmo login do Ajuste de Tarifa por Período</div></div>
+    <input id="loginEmail" type="email" placeholder="email" autocomplete="username" required>
+    <input id="loginPassword" type="password" placeholder="senha" autocomplete="current-password" required>
+    <button class="btn primary" id="btnLogin" type="submit">Entrar</button>
+    <div class="err" id="loginError"></div>
+  </form>
+</div>
+
+<div class="hidden" id="app">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Reajuste da <b>Taxa de Limpeza</b></h1>
+      <div class="sub" id="subtitle">Carregando…</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="btnSync" title="Relê a taxa de limpeza de todos os anúncios direto na Stays">Reler taxas da Stays</button>
+      <button class="btn" id="btnLogout">Sair</button>
+    </div>
+  </header>
+
+  <div class="card rules" id="rules">
+    <label>Piso (urgente abaixo de) R$ <input type="number" id="pPiso" step="5"></label>
+    <label>Aumento mínimo R$ <input type="number" id="pMin" step="5"></label>
+    <label>Ocupação "alta" ≥ <input type="number" id="pOcc" step="5"> %</label>
+    <label>Região alta se ≥ <input type="number" id="pShare" step="5"> % dos imóveis acima disso</label>
+    <div class="txt" id="rulesTxt"></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="controls" id="controls">
+    <input type="search" id="q" placeholder="Buscar imóvel, código ou região">
+    <select id="fRegion"><option value="">Todas as regiões</option></select>
+    <select id="fStatus">
+      <option value="">Todos os status</option>
+      <option value="pend">Pendentes</option>
+      <option value="sent">Já enviados</option>
+    </select>
+    <button class="btn" id="btnSelAll">Selecionar visíveis pendentes</button>
+    <button class="btn" id="btnSelNone">Limpar seleção</button>
+  </div>
+
+  <div class="card tablewrap" id="tableBox"></div>
+</div>
+
+<div class="bar-bottom">
+  <div class="in">
+    <div id="selInfo" class="sub">Nenhum imóvel selecionado.</div>
+    <button class="btn primary" id="btnApply" disabled>Aprovar e enviar para a Stays</button>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg hidden" id="modalBg"><div class="card modal" id="modal"></div></div>
+
+<script>
+(function () {
+  var SUPABASE_URL = "https://ucavfotyciwnqwurzjny.supabase.co";
+  var ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjYXZmb3R5Y2l3bnF3dXJ6am55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NzUzNjYsImV4cCI6MjA3MzU1MTM2Nn0.nE_W8wZZvJfzlvhP83ge1J0ooS3EcFVSlQYK28eTGU0";
+  var FN_URL = SUPABASE_URL + "/functions/v1/limpeza-taxas";
+  var TOKEN_KEY = "tarifa_periodo_token";
+  var PARAMS_KEY = "taxa_limpeza_params_v1";
+  var DRAFT_KEY = "taxa_limpeza_draft_v1";
+  var DEFAULTS = { piso: 135, min: 15, occ: 70, share: 50 };
+  var APPLY_BATCH = 8;
+
+  // Praias/bairros com grafias diferentes na Stays que são o mesmo lugar.
+  var BAIRRO_ALIAS = {
+    "CE - BeachTownhouses 1": "CE - Porto das Dunas", "CE - BeachTownhouses 2": "CE - Porto das Dunas",
+    "CE - BeachTownhouses 4": "CE - Porto das Dunas", "CE - BeachTownhouses 5": "CE - Porto das Dunas",
+    "CE - Praia Porto das Dunas": "CE - Porto das Dunas",
+    "Madalena": "PE - Madalena", "Ponta de Campina": "PB - Ponta de Campina", "Rio Vermelho": "BA - Rio Vermelho",
+    "Santo Antônio dos Prazeres": "PE - Santo Antônio dos Prazeres",
+    "PE - Muro Alto": "PE - Praia de Muro Alto", "PB - Cabo Branco": "PB - Praia de Cabo Branco",
+    "PE - Pina": "PE - Praia do Pina", "PB - Praia do Jardim Oceania": "PB - Jardim Oceania",
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var P = load(PARAMS_KEY, DEFAULTS);
+  var D = load(DRAFT_KEY, { extra: {}, regExtra: {}, sel: {} });
+  var S = window.TaxaLimpeza = { raw: null, rows: [], regions: [], tab: "urg", sort: {}, busy: false };
+
+  function load(k, def) { var o = JSON.parse(JSON.stringify(def)); try { Object.assign(o, JSON.parse(localStorage.getItem(k) || "{}")); } catch (e) {} return o; }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function money(v) { return v == null || !isFinite(v) ? "—" : "R$ " + (Math.round(v * 100) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }); }
+  function pct(v) { return v == null || !isFinite(v) ? "—" : Math.round(v * 100) + "%"; }
+  function dt(s) { if (!s) return "—"; var d = new Date(s); return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); }
+  function norm(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function median(a) { a = a.filter(function (x) { return x != null && isFinite(x); }).sort(function (x, y) { return x - y; }); if (!a.length) return null; var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+
+  function call(action, extra) {
+    var token = sessionStorage.getItem(TOKEN_KEY);
+    return fetch(FN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify(Object.assign({ action: action }, extra || {}))
+    }).then(function (r) {
+      if (r.status === 401) { logout("Sessão expirada — entre de novo."); throw new Error("unauthorized"); }
+      return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ("erro " + r.status)); return d; });
+    });
+  }
+  function rpc(name, params) {
+    return fetch(SUPABASE_URL + "/rest/v1/rpc/" + name, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: "Bearer " + ANON_KEY },
+      body: JSON.stringify(params)
+    }).then(function (r) { return r.json(); });
+  }
+
+  // ---------- auth ----------
+  function logout(msg) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    $("app").classList.add("hidden"); $("gate").classList.remove("hidden");
+    $("loginError").textContent = msg || "";
+  }
+  $("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("btnLogin").disabled = true; $("loginError").textContent = "";
+    rpc("tarifa_periodo_login", { p_email: $("loginEmail").value.trim(), p_password: $("loginPassword").value })
+      .then(function (t) {
+        if (typeof t === "string" && t) { sessionStorage.setItem(TOKEN_KEY, t); start(); }
+        else $("loginError").textContent = "Email ou senha incorretos.";
+      })
+      .catch(function () { $("loginError").textContent = "Não deu pra conectar agora."; })
+      .finally(function () { $("btnLogin").disabled = false; });
+  });
+  $("btnLogout").addEventListener("click", function () {
+    var t = sessionStorage.getItem(TOKEN_KEY);
+    if (t) rpc("tarifa_periodo_logout", { p_token: t }).catch(function () {});
+    logout();
+  });
+
+  function start() {
+    $("gate").classList.add("hidden"); $("app").classList.remove("hidden");
+    $("subtitle").textContent = "Carregando dados…";
+    return call("data").then(function (d) { S.raw = d; build(); render(); })
+      .catch(function (e) { if (e.message !== "unauthorized") $("subtitle").textContent = "Erro ao carregar: " + e.message; });
+  }
+
+  // ---------- modelo ----------
+  function occOf(m, k) {
+    var x = m && m[k]; if (!x) return null;
+    var den = x[0] - x[2]; return den > 0 ? Math.min(1, x[1] / den) : null;
+  }
+  function build() {
+    var d = S.raw, fees = d.fees;
+    // último envio bem-sucedido (não revertido) por anúncio
+    // último envio e taxa original (antes do 1º envio ok ainda não revertido) por anúncio
+    var lastByListing = {}, origByListing = {};
+    d.changes.forEach(function (c) {
+      if (!lastByListing[c.listing_id]) lastByListing[c.listing_id] = c;
+      if (c.ok && !c.reverted_at) origByListing[c.listing_id] = c; // lista vem do mais novo pro mais antigo
+    });
+    S.changesByGroup = {};
+    d.changes.forEach(function (c) { (S.changesByGroup[c.group_id] = S.changesByGroup[c.group_id] || []).push(c); });
+
+    var rows = d.groups.map(function (g) {
+      var f = fees[g.id] || [null, false];
+      var reg = BAIRRO_ALIAS[g.regiao] || g.regiao;
+      var nAds = (g.ads || []).filter(function (a) { return a.status === "active"; }).length;
+      var nUnits = (g.ads || []).filter(function (a) { return a.kind === "unidade"; }).length;
+      var memberFees = (g.ads || []).map(function (a) { return (fees[a.id] || [null])[0]; });
+      var last = lastByListing[g.id];
+      var h = g.m && g.m.h90;
+      return {
+        id: g.id, code: g.code, nome: g.nome, titulo: g.titulo, regiao: reg, cidade: g.cidade, uf: g.uf,
+        quartos: g.quartos, pessoas: g.pessoas, units: g.units, nAds: nAds, nUnits: nUnits, ads: g.ads || [],
+        fee: f[0], global: f[1],
+        feeMin: Math.min.apply(null, memberFees.filter(function (x) { return x != null; }).concat([f[0] == null ? Infinity : f[0]])),
+        occ: occOf(g.m, "h90"), occF: occOf(g.m, "f60"),
+        stays90: h ? h[3] : 0, los: h ? h[4] : null,
+        last: last && !last.reverted_at ? last : null,
+        orig: origByListing[g.id] ? origByListing[g.id].old_val : f[0],
+      };
+    });
+    S.rows = rows;
+    classify();
+    var sel = $("fRegion"), cur = sel.value;
+    sel.innerHTML = '<option value="">Todas as regiões</option>' + S.regions.map(function (r) {
+      return '<option value="' + esc(r.nome) + '">' + esc(r.nome) + " (" + r.n + ")</option>";
+    }).join("");
+    sel.value = cur;
+  }
+
+  // Regras: classifica região, define sugestão padrão e quem ganha "lacuna" para aumento extra.
+  function classify() {
+    var occT = P.occ / 100, shareT = P.share / 100;
+    var byReg = {};
+    S.rows.forEach(function (r) { (byReg[r.regiao] = byReg[r.regiao] || []).push(r); });
+    S.regions = Object.keys(byReg).map(function (k) {
+      var list = byReg[k], occs = list.map(function (r) { return r.occ; }).filter(function (x) { return x != null; });
+      var hi = occs.filter(function (x) { return x >= occT; }).length;
+      var share = occs.length ? hi / occs.length : 0;
+      var med = median(occs);
+      var tier = list.length >= 3 && share >= shareT ? "alta" : (med != null && med >= occT - 0.15 ? "media" : "baixa");
+      return { nome: k, n: list.length, med: med, share: share, hi: hi, tier: tier, small: list.length < 3,
+        feeMed: median(list.map(function (r) { return r.fee; })), urg: list.filter(function (r) { return r.fee == null || r.fee < P.piso; }).length };
+    }).sort(function (a, b) { return b.n - a.n; });
+    var regMap = {}; S.regions.forEach(function (r) { regMap[r.nome] = r; });
+    S.regMap = regMap;
+    S.rows.forEach(function (r) {
+      var rg = regMap[r.regiao];
+      r.tier = rg.tier;
+      r.urgent = r.orig == null || Number(r.orig) < P.piso;
+      var cur = Number(r.orig) || 0; // sugestão sempre parte da taxa de antes do reajuste
+      r.sug = Math.max(P.piso, cur + P.min);
+      r.strong = r.occ != null && r.occ >= occT;
+      r.lacuna = rg.tier === "alta" || r.strong;
+      var ex = r.lacuna ? Number(D.extra[r.id] != null && D.extra[r.id] !== "" ? D.extra[r.id] : (D.regExtra[r.regiao] || 0)) : 0;
+      r.extra = isFinite(ex) && ex > 0 ? ex : 0;
+      r.final = r.sug + r.extra;
+      r.sent = !!(r.last && r.last.ok && Number(r.last.new_val) === r.final);
+      r.sentAny = !!(r.last && r.last.ok);
+      r.err = r.last && !r.last.ok ? r.last.error : null;
+      r.impact = (r.final - (r.fee || 0)) * r.stays90;
+    });
+  }
+
+  // ---------- render ----------
+  var TABS = [
+    ["urg", "Urgente (abaixo do piso)"],
+    ["alta", "Alta performance (lacuna)"],
+    ["padrao", "Padrão (+mínimo)"],
+    ["regioes", "Regiões"],
+    ["todos", "Todos"],
+    ["hist", "Histórico de envios"],
+  ];
+  function inTab(r, t) {
+    if (t === "urg") return r.urgent;
+    if (t === "alta") return !r.urgent && r.lacuna;
+    if (t === "padrao") return !r.urgent && !r.lacuna;
+    return true;
+  }
+  function render() {
+    var d = S.raw;
+    $("subtitle").textContent = S.rows.length + " imóveis (grupos de preço) · taxas lidas da Stays em " + dt(d.feesAt) +
+      " · ocupação dos últimos 90 dias, atualizada em " + dt(d.occAt);
+    ["pPiso", "pMin", "pOcc", "pShare"].forEach(function (id) { var k = { pPiso: "piso", pMin: "min", pOcc: "occ", pShare: "share" }[id]; if (document.activeElement !== $(id)) $(id).value = P[k]; });
+    $("rulesTxt").innerHTML = "Sugestão = maior entre <b>R$ " + P.piso + "</b> e <b>taxa atual + R$ " + P.min + "</b>. " +
+      "Região de <b>alta performance</b>: pelo menos " + P.share + "% dos imóveis com ocupação ≥ " + P.occ + "% nos últimos 90 dias (mín. 3 imóveis). " +
+      "Nessas regiões — e em qualquer imóvel com ocupação própria ≥ " + P.occ + "% — aparece a <span class='badge b-forte'>lacuna</span> para você somar um aumento extra. " +
+      "A taxa é gravada no <b>pai de preço</b> e em todos os anúncios e unidades que clonam o preço dele; nunca reduz uma taxa que já esteja acima.";
+
+    var urg = S.rows.filter(function (r) { return r.urgent; });
+    var lac = S.rows.filter(function (r) { return !r.urgent && r.lacuna; });
+    var pad = S.rows.filter(function (r) { return !r.urgent && !r.lacuna; });
+    var sent = S.rows.filter(function (r) { return r.sent; }).length;
+    var impact = S.rows.reduce(function (s, r) { return s + (r.sent ? 0 : r.impact); }, 0);
+    var altaRegs = S.regions.filter(function (r) { return r.tier === "alta"; }).length;
+    $("kpis").innerHTML = [
+      ["bad", "Urgentes (taxa < R$ " + P.piso + ")", urg.length, urg.filter(function (r) { return !r.sent; }).length + " ainda pendentes"],
+      ["", "Alta performance (com lacuna)", lac.length, altaRegs + " regiões de alta + imóveis fortes"],
+      ["", "Padrão (+R$ " + P.min + ")", pad.length, "aprovação direta"],
+      ["good", "Já no valor novo", sent, "de " + S.rows.length + " imóveis"],
+      ["", "Receita extra estimada", money(impact), "pendentes × estadias dos últimos 90 dias"],
+    ].map(function (k) { return '<div class="card kpi ' + k[0] + '"><div class="l">' + k[1] + '</div><div class="v">' + k[2] + '</div><div class="d">' + k[3] + "</div></div>"; }).join("");
+
+    $("tabs").innerHTML = TABS.map(function (t) {
+      var n = t[0] === "regioes" ? S.regions.length : t[0] === "hist" ? d.changes.length : S.rows.filter(function (r) { return inTab(r, t[0]); }).length;
+      return '<button class="tab ' + (S.tab === t[0] ? "on " : "") + (t[0] === "urg" ? "urg" : "") + '" data-tab="' + t[0] + '">' + t[1] + ' <span class="count">' + n + "</span></button>";
+    }).join("");
+    $("controls").classList.toggle("hidden", S.tab === "regioes" || S.tab === "hist");
+
+    if (S.tab === "regioes") renderRegions();
+    else if (S.tab === "hist") renderHist();
+    else renderRows();
+    renderSel();
+  }
+
+  function sortRows(list, key, dir) {
+    return list.sort(function (a, b) {
+      var x = a[key], y = b[key];
+      if (x == null) return 1; if (y == null) return -1;
+      if (typeof x === "string") return dir * x.localeCompare(y);
+      return dir * (x - y);
+    });
+  }
+  function th(key, label, cls, tabKey) {
+    var s = S.sort[tabKey] || [];
+    return '<th class="' + (cls || "") + '" data-sort="' + key + '">' + label + (s[0] === key ? ' <span class="arr">' + (s[1] > 0 ? "▲" : "▼") + "</span>" : "") + "</th>";
+  }
+  function occCell(v) {
+    if (v == null) return '<span class="muted">—</span>';
+    return '<span class="occ ' + (v >= P.occ / 100 ? "hi" : "") + '"><span class="bar"><i style="width:' + Math.min(100, Math.round(v * 100)) + '%"></i></span>' + pct(v) + "</span>";
+  }
+  function tierBadge(t) { return { alta: '<span class="badge b-alta">alta</span>', media: '<span class="badge b-media">média</span>', baixa: '<span class="badge b-baixa">baixa</span>' }[t]; }
+
+  function visibleRows() {
+    var q = norm($("q").value), reg = $("fRegion").value, st = $("fStatus").value;
+    return S.rows.filter(function (r) {
+      if (!inTab(r, S.tab)) return false;
+      if (reg && r.regiao !== reg) return false;
+      if (st === "pend" && r.sent) return false;
+      if (st === "sent" && !r.sent) return false;
+      if (q && norm(r.nome + " " + r.code + " " + r.regiao + " " + r.titulo).indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+
+  function renderRows() {
+    var t = S.tab;
+    if (!S.sort[t]) S.sort[t] = t === "urg" ? ["fee", 1] : ["occ", -1];
+    var list = sortRows(visibleRows(), S.sort[t][0], S.sort[t][1]);
+    if (!list.length) { $("tableBox").innerHTML = '<div class="empty">Nada por aqui com esses filtros.</div>'; return; }
+    var showLac = t !== "padrao";
+    var h = "<table><thead><tr>" +
+      '<th class="nosort"><input type="checkbox" id="chkAll"></th>' +
+      th("nome", "Imóvel (pai de preço)", "", t) + th("regiao", "Região", "", t) + th("tier", "Perf. região", "", t) +
+      th("occ", "Ocup. 90d", "num", t) + th("occF", "Ocup. próx. 60d", "num", t) + th("stays90", "Estadias 90d", "num", t) +
+      th("fee", "Taxa atual", "num", t) + th("sug", "Sugestão padrão", "num", t) +
+      (showLac ? '<th class="nosort num">Aumento extra</th>' : "") +
+      th("final", "Taxa nova", "num", t) + th("sent", "Status", "", t) +
+      "</tr></thead><tbody>";
+    h += list.map(function (r) {
+      var members = r.nAds + r.nUnits;
+      var memTxt = members > 1 ? '<span class="link" data-members="' + r.id + '">' + (r.nAds > 1 ? r.nAds + " anúncios" : "") + (r.nAds > 1 && r.nUnits ? " + " : "") + (r.nUnits ? r.nUnits + " unidades" : "") + " clonam este preço</span>" : (r.code || "");
+      var status = r.sent ? '<span class="badge b-ok">na Stays</span>' + (r.last ? ' <span class="note">' + dt(r.last.at) + "</span>" : "")
+        : r.err ? '<span class="badge b-err" title="' + esc(r.err) + '">erro no envio</span>'
+        : '<span class="muted">pendente</span>';
+      var lacCell = "";
+      if (showLac) {
+        lacCell = r.lacuna
+          ? '<td class="num">+ <input class="lac" type="number" min="0" step="5" data-extra="' + r.id + '" value="' + (D.extra[r.id] != null && D.extra[r.id] !== "" ? esc(D.extra[r.id]) : "") + '" placeholder="' + (D.regExtra[r.regiao] ? D.regExtra[r.regiao] : "R$") + '"' + (r.sent ? "" : "") + "></td>"
+          : '<td class="num muted">—</td>';
+      }
+      var feeTxt = r.fee == null ? '<span class="badge b-urg">sem taxa</span>' : money(r.fee) + (r.global ? ' <span class="note" title="Usa o valor padrão global da Stays">global</span>' : "");
+      if (Number(r.orig) !== Number(r.fee)) feeTxt += '<div class="note">antes: ' + money(r.orig) + "</div>";
+      return "<tr>" +
+        '<td><input type="checkbox" data-sel="' + r.id + '"' + (D.sel[r.id] ? " checked" : "") + "></td>" +
+        '<td><div class="nm" title="' + esc(r.titulo) + '">' + esc(r.nome) + '</div><div class="nm2">' + memTxt + (r.quartos ? " · " + r.quartos + " qto" : "") + "</div></td>" +
+        "<td>" + esc(r.regiao) + "</td>" +
+        "<td>" + tierBadge(r.tier) + (r.strong && r.tier !== "alta" ? ' <span class="badge b-forte" title="Ocupação do próprio imóvel acima do limite">imóvel forte</span>' : "") + "</td>" +
+        '<td class="num">' + occCell(r.occ) + "</td>" +
+        '<td class="num">' + occCell(r.occF) + "</td>" +
+        '<td class="num">' + (r.stays90 || 0) + "</td>" +
+        '<td class="num">' + feeTxt + "</td>" +
+        '<td class="num">' + money(r.sug) + "</td>" +
+        lacCell +
+        '<td class="num"><span class="final">' + money(r.final) + '</span> <span class="delta">+' + money(r.final - (Number(r.orig) || 0)).replace("R$ ", "") + "</span></td>" +
+        "<td>" + status + "</td></tr>";
+    }).join("");
+    h += "</tbody></table>";
+    $("tableBox").innerHTML = h;
+  }
+
+  function renderRegions() {
+    var t = "regioes";
+    if (!S.sort[t]) S.sort[t] = ["share", -1];
+    var list = sortRows(S.regions.slice(), S.sort[t][0], S.sort[t][1]);
+    var h = "<table><thead><tr>" + th("nome", "Região", "", t) + th("n", "Imóveis", "num", t) + th("med", "Ocupação mediana 90d", "num", t) +
+      th("share", "% imóveis ≥ " + P.occ + "%", "num", t) + th("tier", "Performance", "", t) + th("feeMed", "Taxa mediana atual", "num", t) +
+      th("urg", "Urgentes", "num", t) + '<th class="nosort num">Aumento extra p/ região</th><th class="nosort"></th></tr></thead><tbody>';
+    h += list.map(function (r) {
+      return "<tr><td><b>" + esc(r.nome) + "</b>" + (r.small ? ' <span class="note">amostra pequena</span>' : "") + "</td>" +
+        '<td class="num">' + r.n + "</td>" +
+        '<td class="num">' + occCell(r.med) + "</td>" +
+        '<td class="num">' + pct(r.share) + ' <span class="note">(' + r.hi + ")</span></td>" +
+        "<td>" + tierBadge(r.tier) + "</td>" +
+        '<td class="num">' + money(r.feeMed) + "</td>" +
+        '<td class="num">' + (r.urg ? '<span class="badge b-urg">' + r.urg + "</span>" : "—") + "</td>" +
+        '<td class="num">' + (r.tier === "alta" ? '+ <input class="regin" type="number" min="0" step="5" data-regextra="' + esc(r.nome) + '" value="' + esc(D.regExtra[r.nome] || "") + '" placeholder="R$">' : '<span class="note">só imóveis fortes</span>') + "</td>" +
+        '<td><button class="btn sm" data-goreg="' + esc(r.nome) + '">ver imóveis</button></td></tr>';
+    }).join("");
+    $("tableBox").innerHTML = h + "</tbody></table>" +
+      '<div class="note" style="padding:10px 12px">O aumento extra da região preenche a lacuna de todos os imóveis dela que você não editou individualmente.</div>';
+  }
+
+  function renderHist() {
+    var byId = {}; S.rows.forEach(function (r) { r.ads.forEach(function (a) { byId[a.id] = a.nome; }); byId[r.id] = r.nome; });
+    var ch = S.raw.changes;
+    if (!ch.length) { $("tableBox").innerHTML = '<div class="empty">Nenhum envio para a Stays ainda.</div>'; return; }
+    var h = '<table><thead><tr><th class="nosort">Quando</th><th class="nosort">Quem</th><th class="nosort">Anúncio</th><th class="nosort num">Antes</th><th class="nosort num">Depois</th><th class="nosort">Resultado</th><th class="nosort"></th></tr></thead><tbody>';
+    h += ch.map(function (c) {
+      return "<tr><td>" + dt(c.at) + "</td><td>" + esc(c.email) + "</td><td>" + esc(byId[c.listing_id] || c.listing_id) + "</td>" +
+        '<td class="num">' + money(c.old_val) + (c.old_global ? ' <span class="note">global</span>' : "") + '</td><td class="num">' + money(c.new_val) + "</td>" +
+        "<td>" + (c.reverted_at ? '<span class="badge b-baixa">revertido</span>' : c.ok ? '<span class="badge b-ok">ok</span>' : '<span class="badge b-err" title="' + esc(c.error) + '">erro</span> <span class="note">' + esc((c.error || "").slice(0, 80)) + "</span>") + "</td>" +
+        "<td>" + (c.ok && !c.reverted_at ? '<button class="btn sm" data-revert="' + c.id + '">reverter</button>' : "") + "</td></tr>";
+    }).join("");
+    $("tableBox").innerHTML = h + "</tbody></table>";
+  }
+
+  function selected() { return S.rows.filter(function (r) { return D.sel[r.id]; }); }
+  function renderSel() {
+    var sel = selected();
+    var nList = sel.reduce(function (s, r) { return s + 1 + r.ads.filter(function (a) { return a.id !== r.id; }).length; }, 0);
+    $("selInfo").innerHTML = sel.length ? "<b>" + sel.length + "</b> imóveis selecionados · <b>" + nList + "</b> anúncios/unidades serão atualizados na Stays" : "Nenhum imóvel selecionado.";
+    $("btnApply").disabled = !sel.length || S.busy;
+  }
+
+  // ---------- eventos ----------
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-tab]");
+    if (t) { S.tab = t.dataset.tab; render(); return; }
+    t = e.target.closest("th[data-sort]");
+    if (t) {
+      var k = t.dataset.sort, s = S.sort[S.tab] || [];
+      S.sort[S.tab] = [k, s[0] === k ? -s[1] : (k === "nome" || k === "regiao" ? 1 : -1)];
+      render(); return;
+    }
+    t = e.target.closest("[data-members]");
+    if (t) { showMembers(t.dataset.members); return; }
+    t = e.target.closest("[data-goreg]");
+    if (t) {
+      var reg = t.dataset.goreg, rg = S.regMap[reg];
+      S.tab = rg.tier === "alta" ? "alta" : "todos"; $("fRegion").value = reg; render(); return;
+    }
+    t = e.target.closest("[data-revert]");
+    if (t) { revert([Number(t.dataset.revert)], t); return; }
+    if (e.target === $("modalBg")) closeModal();
+  });
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.dataset.sel) { if (t.checked) D.sel[t.dataset.sel] = 1; else delete D.sel[t.dataset.sel]; save(DRAFT_KEY, D); renderSel(); }
+    if (t.id === "chkAll") {
+      visibleRows().forEach(function (r) { if (t.checked && !r.sent) D.sel[r.id] = 1; else if (!t.checked) delete D.sel[r.id]; });
+      save(DRAFT_KEY, D); render();
+    }
+    if (t.dataset.extra) { D.extra[t.dataset.extra] = t.value === "" ? "" : Math.max(0, Number(t.value)); if (t.value === "") delete D.extra[t.dataset.extra]; save(DRAFT_KEY, D); classify(); render(); }
+    if (t.dataset.regextra) { var v = Number(t.value); if (t.value === "" || !(v > 0)) delete D.regExtra[t.dataset.regextra]; else D.regExtra[t.dataset.regextra] = v; save(DRAFT_KEY, D); classify(); render(); }
+    if (/^p(Piso|Min|Occ|Share)$/.test(t.id)) {
+      var k = { pPiso: "piso", pMin: "min", pOcc: "occ", pShare: "share" }[t.id], v2 = Number(t.value);
+      if (isFinite(v2) && v2 >= 0) { P[k] = v2; save(PARAMS_KEY, P); classify(); render(); }
+    }
+  });
+  ["q", "fRegion", "fStatus"].forEach(function (id) { $(id).addEventListener(id === "q" ? "input" : "change", function () { renderRows(); }); });
+  $("btnSelAll").addEventListener("click", function () { visibleRows().forEach(function (r) { if (!r.sent) D.sel[r.id] = 1; }); save(DRAFT_KEY, D); render(); });
+  $("btnSelNone").addEventListener("click", function () { D.sel = {}; save(DRAFT_KEY, D); render(); });
+
+  function openModal(html) { $("modal").innerHTML = html; $("modalBg").classList.remove("hidden"); }
+  function closeModal() { if (S.busy) return; $("modalBg").classList.add("hidden"); }
+
+  function showMembers(id) {
+    var r = S.rows.find(function (x) { return x.id === id; }); if (!r) return;
+    var fees = S.raw.fees;
+    openModal("<h3>" + esc(r.nome) + '</h3><div class="sub">Pai de preço e anúncios que clonam o preço dele — todos recebem a taxa nova.</div>' +
+      '<table style="margin-top:10px"><thead><tr><th>Anúncio</th><th>Tipo</th><th>Status</th><th class="num">Taxa atual</th></tr></thead><tbody>' +
+      r.ads.map(function (a) {
+        var f = fees[a.id] || [null, false];
+        return "<tr><td>" + esc(a.nome) + ' <span class="note">' + esc(a.code || "") + "</span></td><td>" + ({ pai: "<b>pai de preço</b>", unidade: "unidade do prédio", anuncio: "clona o preço" }[a.kind] || a.kind) +
+          "</td><td>" + (a.status === "active" ? "ativo" : "oculto") + '</td><td class="num">' + money(f[0]) + (f[1] ? ' <span class="note">global</span>' : "") + "</td></tr>";
+      }).join("") + '</tbody></table><div style="text-align:right;margin-top:12px"><button class="btn" id="mClose">Fechar</button></div>');
+    $("mClose").onclick = closeModal;
+  }
+
+  // ---------- envio ----------
+  $("btnApply").addEventListener("click", function () {
+    var sel = selected();
+    var nList = sel.reduce(function (s, r) { return s + r.ads.length; }, 0);
+    var groups = {};
+    sel.forEach(function (r) { var k = r.urgent ? "Urgentes" : r.lacuna ? "Alta performance" : "Padrão"; (groups[k] = groups[k] || []).push(r); });
+    openModal("<h3>Enviar novas taxas para a Stays</h3>" +
+      '<div class="sub">' + sel.length + " imóveis · " + nList + " anúncios/unidades. A Stays é atualizada na hora; dá para reverter pelo histórico.</div>" +
+      '<table style="margin-top:10px"><thead><tr><th>Imóvel</th><th class="num">Atual</th><th class="num">Nova</th><th class="num">Anúncios</th></tr></thead><tbody>' +
+      Object.keys(groups).map(function (k) {
+        return '<tr><td colspan="4"><b>' + k + "</b> (" + groups[k].length + ")</td></tr>" + groups[k].map(function (r) {
+          return "<tr><td>" + esc(r.nome) + '</td><td class="num">' + money(r.fee) + '</td><td class="num"><b>' + money(r.final) + '</b></td><td class="num">' + r.ads.length + "</td></tr>";
+        }).join("");
+      }).join("") +
+      '</tbody></table><div class="progress hidden" id="prog"><i></i></div><div class="note" id="progTxt"></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" id="mCancel">Cancelar</button><button class="btn primary" id="mGo">Confirmar e enviar</button></div>');
+    $("mCancel").onclick = closeModal;
+    $("mGo").onclick = function () { apply(sel); };
+  });
+
+  function apply(sel) {
+    S.busy = true; $("mGo").disabled = true; $("mCancel").disabled = true; $("prog").classList.remove("hidden");
+    var items = sel.map(function (r) { return { group: r.id, value: r.final }; });
+    var done = 0, okN = 0, errs = [];
+    var chunks = []; for (var i = 0; i < items.length; i += APPLY_BATCH) chunks.push(items.slice(i, i + APPLY_BATCH));
+    var p = Promise.resolve();
+    chunks.forEach(function (ch) {
+      p = p.then(function () {
+        return call("apply", { items: ch }).then(function (res) {
+          res.results.forEach(function (x) {
+            if (x.ok) { okN++; delete D.sel[x.group]; }
+            else {
+              var r = S.rows.find(function (y) { return y.id === x.group; });
+              var bad = (x.listings || []).filter(function (l) { return !l.ok; });
+              errs.push((r ? r.nome : x.group) + ": " + (x.error || (bad[0] && bad[0].error) || "erro"));
+            }
+          });
+        }).catch(function (e) { errs.push("lote falhou: " + e.message); })
+          .then(function () {
+            done += ch.length; save(DRAFT_KEY, D);
+            document.querySelector("#prog i").style.width = Math.round(done / items.length * 100) + "%";
+            $("progTxt").textContent = done + " de " + items.length + " imóveis processados · " + okN + " ok" + (errs.length ? " · " + errs.length + " com erro" : "");
+          });
+      });
+    });
+    p.then(function () {
+      S.busy = false;
+      $("progTxt").innerHTML = "<b>Concluído:</b> " + okN + " de " + items.length + " imóveis atualizados na Stays." +
+        (errs.length ? '<div class="err" style="margin-top:6px">' + errs.map(esc).join("<br>") + "</div>" : "");
+      var b = $("mGo"); b.textContent = "Fechar"; b.disabled = false; b.onclick = function () { closeModal(); };
+      $("mCancel").classList.add("hidden");
+      return call("data").then(function (d) { S.raw = d; build(); render(); });
+    });
+  }
+
+  function revert(ids, btn) {
+    if (!confirm("Voltar esta taxa para o valor anterior na Stays?")) return;
+    btn.disabled = true;
+    call("revert", { ids: ids }).then(function (res) {
+      var bad = res.results.filter(function (x) { return !x.ok; });
+      if (bad.length) alert("Não deu para reverter: " + bad.map(function (x) { return x.error; }).join("; "));
+      return call("data").then(function (d) { S.raw = d; build(); render(); });
+    }).catch(function (e) { alert(e.message); btn.disabled = false; });
+  }
+
+  $("btnSync").addEventListener("click", function () {
+    var b = $("btnSync"); b.disabled = true; b.textContent = "Lendo a Stays…";
+    call("sync").then(function (r) {
+      var ids = r.ids, chunks = [], done = 0;
+      for (var i = 0; i < ids.length; i += 120) chunks.push(ids.slice(i, i + 120));
+      var p = Promise.resolve();
+      chunks.forEach(function (ch) {
+        p = p.then(function () { return call("sync", { ids: ch }); }).then(function () { done += ch.length; b.textContent = "Lendo a Stays… " + Math.round(done / ids.length * 100) + "%"; });
+      });
+      return p;
+    }).then(function () { return call("data"); }).then(function (d) { S.raw = d; build(); render(); })
+      .catch(function (e) { alert("Erro ao reler: " + e.message); })
+      .finally(function () { b.disabled = false; b.textContent = "Reler taxas da Stays"; });
+  });
+
+  if (sessionStorage.getItem(TOKEN_KEY)) start(); else logout();
+})();
+</script>
+</body>
+</html>
