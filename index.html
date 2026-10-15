@@ -101,6 +101,18 @@
     <input id="loginPassword" type="password" placeholder="senha" autocomplete="current-password" required>
     <button class="btn primary" id="btnLogin" type="submit">Entrar</button>
     <div class="err" id="loginError"></div>
+    <a class="link" id="lnkReset" style="font-size:13px">Esqueci / quero redefinir minha senha</a>
+  </form>
+  <form class="card hidden" id="resetForm">
+    <div><b style="font-size:17px">Redefinir senha</b><div class="sub">Vale para Taxa de Limpeza, Performance de Diárias, Diagnóstico de RM e Ajuste de Tarifa.</div></div>
+    <input id="rsEmail" type="email" placeholder="email" autocomplete="username" required>
+    <input id="rsProof" type="password" placeholder="senha atual ou da conta Carpediem" autocomplete="current-password" required>
+    <div class="note">Se esqueceu a senha deste login, use a senha da sua conta Carpediem (a mesma dos apps internos no Supabase).</div>
+    <input id="rsNew" type="password" placeholder="senha nova (mín. 8 caracteres)" autocomplete="new-password" minlength="8" required>
+    <input id="rsNew2" type="password" placeholder="repita a senha nova" autocomplete="new-password" minlength="8" required>
+    <button class="btn primary" id="btnReset" type="submit">Salvar senha nova</button>
+    <div class="err" id="resetError"></div>
+    <a class="link" id="lnkBack" style="font-size:13px">Voltar para o login</a>
   </form>
 </div>
 
@@ -225,6 +237,30 @@
       })
       .catch(function () { $("loginError").textContent = "Não deu pra conectar agora."; })
       .finally(function () { $("btnLogin").disabled = false; });
+  });
+  function showReset(on) {
+    $("loginForm").classList.toggle("hidden", on); $("resetForm").classList.toggle("hidden", !on);
+    if (on) { $("rsEmail").value = $("loginEmail").value; $("resetError").textContent = ""; }
+  }
+  $("lnkReset").addEventListener("click", function () { showReset(true); });
+  $("lnkBack").addEventListener("click", function () { showReset(false); });
+  $("resetForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = $("resetError");
+    if ($("rsNew").value !== $("rsNew2").value) { err.textContent = "As duas senhas novas não são iguais."; return; }
+    $("btnReset").disabled = true; err.textContent = "";
+    fetch(FN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset_password", email: $("rsEmail").value.trim(), proof: $("rsProof").value, newPassword: $("rsNew").value })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { err.textContent = d.error || "Não deu para redefinir."; return; }
+      $("loginEmail").value = $("rsEmail").value.trim(); $("loginPassword").value = "";
+      ["rsProof", "rsNew", "rsNew2"].forEach(function (id) { $(id).value = ""; });
+      showReset(false);
+      $("loginError").innerHTML = '<span style="color:var(--good)">Senha alterada. Entre com a senha nova.</span>';
+    }).catch(function () { err.textContent = "Não deu para conectar agora."; })
+      .finally(function () { $("btnReset").disabled = false; });
   });
   $("btnLogout").addEventListener("click", function () {
     var t = sessionStorage.getItem(TOKEN_KEY);

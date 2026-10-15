@@ -252,15 +252,48 @@ async function actionRevert(body: any, email: string) {
   return { results: res, by: email };
 }
 
+// Redefinir a senha do login compartilhado (tarifa_periodo_login), sem sessão. Prova de identidade:
+// a senha atual desse login OU a senha da conta Supabase Auth (Carpediem) do mesmo e-mail.
+// Encerra as sessões abertas desse e-mail.
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const GENERIC_FAIL = "E-mail ou senha de confirmação incorretos.";
+
+async function actionResetPassword(body: any) {
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const proof = String(body.proof ?? "");
+  const pw = String(body.newPassword ?? "");
+  if (!email || !proof) return { ok: false, error: "Preencha o e-mail e a senha de confirmação." };
+  if (pw.length < 8) return { ok: false, error: "A senha nova precisa ter pelo menos 8 caracteres." };
+  const { data: known } = await db.from("tarifa_periodo_login").select("email").ilike("email", email).maybeSingle();
+  if (!known) { await sleep(1200); return { ok: false, error: GENERIC_FAIL }; }
+
+  // 1) senha atual deste login (a RPC abre uma sessão; é apagada logo abaixo junto com as demais)
+  const { data: tok } = await db.rpc("tarifa_periodo_login", { p_email: email, p_password: proof });
+  let verified = typeof tok === "string" && !!tok;
+  // 2) senha da conta Carpediem no Supabase Auth
+  if (!verified && ANON_KEY) {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: proof }),
+    });
+    verified = r.ok;
+  }
+  if (!verified) { await sleep(1200); return { ok: false, error: GENERIC_FAIL }; }
+  must(await db.rpc("tarifa_periodo_set_password", { p_email: email, p_password: pw }));
+  return { ok: true };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (!STAYS_BASE_URL || !STAYS_AUTH_BASIC) {
     return json(500, { error: "STAYS_BASE_URL/STAYS_AUTH_BASIC não configurados nesta função" });
   }
   try {
+    const body = await req.json().catch(() => ({}));
+    if (body.action === "reset_password") return json(200, await actionResetPassword(body));
     const email = await requireSession(req);
     if (!email) return json(401, { error: "sessão inválida" });
-    const body = await req.json().catch(() => ({}));
     switch (body.action) {
       case "data": return json(200, await actionData());
       case "sync": return json(200, await actionSync(body));
